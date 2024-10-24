@@ -73,7 +73,8 @@ class CNBCScraper(NewspaperScraper):
 
         service = Service(CHROMEDRIVER_PATH)
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        driver.get('http://search.cnbc.com/rs/search/view.html?partnerId=2000'
+        driver.get(f'https://www.cnbc.com/search/?query={self.search_term1}%2C{self.search_term2}&qsearchterm={self.search_term1}'
+
                             + '&keywords=' + self.search_term1
                             + '%2C'
                             + self.search_term2
@@ -82,10 +83,8 @@ class CNBCScraper(NewspaperScraper):
         )
         time.sleep(15)
 
-        # Switch to the iframe
-        driver.switch_to.frame(driver.find_element(By.XPATH, 'iframe_xpath'))
 
-        # Now find the element inside the iframe
+        # Now find the element inside th
         ele = driver.find_element(By.XPATH, '//select[@class="minimal SearchResults-searchResultsSelect"]')
 
         # Switch back to the default content
@@ -99,7 +98,10 @@ class CNBCScraper(NewspaperScraper):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
             time.sleep(2)
 
-        results = driver.find_elements_by_xpath('//div[@class="SearchResult-searchResult SearchResult-standardVariant"]')
+        results = WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.XPATH, '//div[@class="SearchResult-searchResult"]'))
+        )
+
 
         main_data = []
 
@@ -107,8 +109,9 @@ class CNBCScraper(NewspaperScraper):
             try:
                 pub_date = result.find_element_by_xpath(".//span[@class='SearchResult-publishedDate']").text
 
-                ltext = result.find_element_by_xpath('.//span[@class="Card-title"]').text
-                link = result.find_element_by_xpath('.//a[@class="resultlink"]').get_attribute('href')
+                ltext = result.find_element(By.XPATH, './/a[@class="SearchResult-title"]').text
+                link = result.find_element(By.XPATH, './/a[@class="SearchResult-title"]').get_attribute('href')
+
                 print(link)
                 if self.check_keywords(ltext) and not links.get(link, False) and self.check_dates(pub_date):
                     links[link] = True
