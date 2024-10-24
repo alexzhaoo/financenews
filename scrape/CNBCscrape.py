@@ -65,7 +65,7 @@ class CNBCScraper(NewspaperScraper):
         chrome_options = Options()
         chrome_options.add_argument("--headless")
 
-        service = Service('../chromedriver.exe')
+        service = Service('C:/Users/teren/Desktop/CNBC Scraper/financenews/chromedriver.exe')
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get('http://search.cnbc.com/rs/search/view.html?partnerId=2000'
                             + '&keywords=' + self.search_term1

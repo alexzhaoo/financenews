@@ -1,3 +1,4 @@
 selenium-screenshots/
 selenium-logs/
 chromedriver.exe
+.env
