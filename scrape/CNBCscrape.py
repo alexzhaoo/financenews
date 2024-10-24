@@ -70,6 +70,8 @@ class CNBCScraper(NewspaperScraper):
 
         chrome_options = Options()
         chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--ignore-certificate-errors")
+
 
         service = Service(CHROMEDRIVER_PATH)
         driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -98,7 +100,7 @@ class CNBCScraper(NewspaperScraper):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
             time.sleep(2)
 
-        results = WebDriverWait(driver, 10).until(
+        results = WebDriverWait(driver, 20).until(
             EC.presence_of_all_elements_located((By.XPATH, '//div[@class="SearchResult-searchResult"]'))
         )
 
