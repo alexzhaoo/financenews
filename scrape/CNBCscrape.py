@@ -11,15 +11,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dateutil.parser import parse
 from selenium.webdriver.chrome.service import Service
-import time
+
 
 
 class NewspaperScraper:
     def __init__ (self, dateStart, dateEnd):
-        self.searchTerm1 = 'bank'
-        self.searchTerm2='coronavirus'
-        self.dateStart = parse(dateStart)
-        self.dateEnd = parse(dateEnd)
+        self.search_term1 = 'bank'
+        self.search_term2 = 'coronavirus'
+        self.date_start = parse(dateStart)
+        self.date_end = parse(dateEnd)
         self.links = []
 
 
@@ -60,7 +60,7 @@ class CNBCScraper(NewspaperScraper):
         links = {}
         stop = False
         index = 1
-        days = (self.dateEnd.date() - self.dateStart.date()).days + 1
+        days = (self.date_end.date() - self.date_start.date()).days + 1
 
         chrome_options = Options()
         chrome_options.add_argument("--headless")
@@ -68,9 +68,9 @@ class CNBCScraper(NewspaperScraper):
         service = Service('../chromedriver.exe')
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get('http://search.cnbc.com/rs/search/view.html?partnerId=2000'
-                            + '&keywords=' + self.searchTerm1
+                            + '&keywords=' + self.search_term1
                             + '%2C'
-                            + self.searchTerm2
+                            + self.search_term2
                             + '&sort=date&type=news&source=CNBC.com'
                             + '&pubtime=' + str(days) + '&pubfreq=d'
         )
@@ -97,7 +97,7 @@ class CNBCScraper(NewspaperScraper):
                 ltext = result.find_element_by_xpath('.//span[@class="Card-title"]').text
                 link = result.find_element_by_xpath('.//a[@class="resultlink"]').get_attribute('href')
                 print(link)
-                if  self.check_keywords(ltext) and not links.get(link,False) and self.check_dates(pub_date):
+                if self.check_keywords(ltext) and not links.get(link, False) and self.check_dates(pub_date):
                     links[link]=True
                     driver.execute_script("window.open('');")
                     driver.switch_to.window(driver.window_handles[1])
@@ -125,8 +125,8 @@ class CNBCScraper(NewspaperScraper):
         self.links = links
         return main_data
     
-start=input('From date in format yyyy-mm-dd :- ')
-end=input(' date in format yyyy-mm-dd :- ')
+start = input('From date in format yyyy-mm-dd :- ')
+end = input('To date in format yyyy-mm-dd :- ')
 def run_scraper (start,end):
     scraper=CNBCScraper(start,end)
     data=scraper.get_pages()
