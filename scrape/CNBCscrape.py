@@ -1,157 +1,80 @@
-import re
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 import csv
 import time
-from datetime import datetime, timedelta, date
-from pytz import timezone
-from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from dateutil.parser import parse
-from selenium.webdriver.chrome.service import Service 
-
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
 load_dotenv()
 
 CHROMEDRIVER_PATH = os.getenv('CHROMEDRIVER_PATH')
 
-
-
-class NewspaperScraper:
-    def __init__ (self, dateStart, dateEnd):
-        self.search_term1 = 'bank'
-        self.search_term2 = 'coronavirus'
-        self.date_start = parse(dateStart)
-        self.date_end = parse(dateEnd)
-        self.links = []
-
-
-    def check_dates (self, date):
-        page_date = parse(date)
-        if page_date >= self.dateStart and page_date <= self.dateEnd:
-            return True
-        return False
-
-
-    def write_to_csv (self, data, file_name):
-        print ('writing to CSV...')
-
-        keys = data[0].keys()
-        with open(file_name, 'a+', encoding='utf-8', newline='') as output_file:
-            dict_writer = csv.DictWriter(output_file, keys)
-            dict_writer.writeheader()
-            dict_writer.writerows(data)
-        print('written to file')
-
-            
-    def check_keywords(self, s):
-        if re.search('coronavirus', s.lower()) is not None or re.search('covid', s.lower()) is not None:
-            if re.search('bank', s.lower()) is not None:
-                return True
-        return False
-
+# Function to scrape homepage data
+def scrape_cnbc_homepage():
+    # Set up WebDriver options
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument("--headless")  # Run headless if you prefer
+    chrome_options.add_argument("--ignore-certificate-errors")
     
+    # Start the WebDriver
+    service = Service(CHROMEDRIVER_PATH)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    # Open the CNBC homepage
+    driver.get('https://www.cnbc.com')
+    time.sleep(5)  # Wait for the page to load
+    
+    # Find the 'LatestNews-list' section
+    try:
+        latest_news_items = driver.find_elements(By.CLASS_NAME, 'LatestNews-item')
 
-
-
-
-class CNBCScraper(NewspaperScraper):
-
-    def get_pages (self, sleep_time=3):
-        print ('running get_pages()...')
-
-        links = {}
-        stop = False
-        index = 1
-        days = (self.date_end.date() - self.date_start.date()).days + 1
-
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--ignore-certificate-errors")
-
-
-        service = Service(CHROMEDRIVER_PATH)
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        driver.get(f'https://www.cnbc.com/search/?query={self.search_term1}%2C{self.search_term2}&qsearchterm={self.search_term1}'
-
-                            + '&keywords=' + self.search_term1
-                            + '%2C'
-                            + self.search_term2
-                            + '&sort=date&type=news&source=CNBC.com'
-                            + '&pubtime=' + str(days) + '&pubfreq=d'
-        )
-        time.sleep(15)
-
-
-        # Now find the element inside th
-        ele = driver.find_element(By.XPATH, '//select[@class="minimal SearchResults-searchResultsSelect"]')
-
-        # Switch back to the default content
-        driver.switch_to.default_content()
-
-        ele.find_element(By.XPATH, ".//option[contains(text(), 'Articles')]").click()
-        time.sleep(sleep_time)
-       
-        for i in range(50):
-
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
-            time.sleep(2)
-
-        results = WebDriverWait(driver, 20).until(
-            EC.presence_of_all_elements_located((By.XPATH, '//div[@class="SearchResult-searchResult"]'))
-        )
-
-
-        main_data = []
-
-        for result in results:
+        # Loop through each 'LatestNews-item' to extract the title and link
+        articles = []
+        for item in latest_news_items:
             try:
-                pub_date = result.find_element_by_xpath(".//span[@class='SearchResult-publishedDate']").text
+                # Extract title and link
+                title_element = item.find_element(By.TAG_NAME, 'a')
+                title = title_element.text
+                link = title_element.get_attribute('href')
 
-                ltext = result.find_element(By.XPATH, './/a[@class="SearchResult-title"]').text
-                link = result.find_element(By.XPATH, './/a[@class="SearchResult-title"]').get_attribute('href')
+                # Store in a dictionary
+                articles.append({
+                    'title': title,
+                    'link': link
+                })
 
-                print(link)
-                if self.check_keywords(ltext) and not links.get(link, False) and self.check_dates(pub_date):
-                    links[link] = True
-                    driver.execute_script("window.open('');")
-                    driver.switch_to.window(driver.window_handles[1])
-                    driver.get(link)
-                    time.sleep(10)
-                    p = ''
-                    for para in driver.find_elements_by_xpath('//div[@class="group"]'):
-                        for e in para.find_elements_by_xpath('.//p'):
-                            p += e.text
-                        
-                    data = {
-                        'title': ltext,
-                        'date_published': pub_date,
-                        'article_link': link,
-                        'text': p
-                    }
-                    print(data['title'])
-                    main_data.append(data)
-                    time.sleep(sleep_time)
-                    driver.close()
-                    driver.switch_to.window(driver.window_handles[0])
+                print(f"Title: {title}\nLink: {link}\n")
+
             except Exception as e:
-                print(e)
+                print(f"Error extracting article: {e}")
 
-        self.links = links
-        return main_data
+        # Close the driver after scraping
+        driver.quit()
+
+        # Write articles to CSV
+        if articles:
+            write_to_csv(articles)
+        else:
+            print("No articles found.")
     
-start = input('From date in format yyyy-mm-dd :- ')
-end = input('To date in format yyyy-mm-dd :- ')
-def run_scraper (start, end):
-    scraper = CNBCScraper(start, end)
-    data = scraper.get_pages()
-    if len(data) == 0:
-        print('NO news related to current keywords in specified range')
-    else:
-        scraper.write_to_csv(data, 'CNBCScraper.csv')
-      
+    except Exception as e:
+        print(f"Error finding the LatestNews list: {e}")
+        driver.quit()
+
+# Function to write the scraped data to a CSV file
+def write_to_csv(data):
+    file_name = 'CNBCHomepageNews.csv'
+    print(f"Writing {len(data)} articles to {file_name}...")
     
-run_scraper(start, end)
+    keys = data[0].keys()
+    with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
+        dict_writer = csv.DictWriter(output_file, keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(data)
+
+    print('Data successfully written to CSV!')
+
+# Run the scraper
+scrape_cnbc_homepage()
