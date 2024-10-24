@@ -82,7 +82,7 @@ class CNBCScraper(NewspaperScraper):
         )
         time.sleep(15)
 
-        # Switch to the iframe
+        # Switch to the iframeiframe
         driver.switch_to.frame(driver.find_element(By.XPATH, 'iframe_xpath'))
 
         # Now find the element inside the iframe
