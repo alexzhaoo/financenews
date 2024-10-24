@@ -1,7 +1,7 @@
 import re
 import csv
 import time
-from datetime import datetime, timedelta,date
+from datetime import datetime, timedelta, date
 from pytz import timezone
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -10,7 +10,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from dateutil.parser import parse
-from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.service import Service 
+
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
+CHROMEDRIVER_PATH = os.getenv('CHROMEDRIVER_PATH')
 
 
 
@@ -34,17 +40,17 @@ class NewspaperScraper:
         print ('writing to CSV...')
 
         keys = data[0].keys()
-        with open(file_name, 'a+',encoding='utf-8',newline='') as output_file:
+        with open(file_name, 'a+', encoding='utf-8', newline='') as output_file:
             dict_writer = csv.DictWriter(output_file, keys)
             dict_writer.writeheader()
             dict_writer.writerows(data)
         print('written to file')
 
             
-    def check_keywords(self,s):
-        if re.search('coronavirus',s.lower()) is not None or re.search('covid',s.lower()) is not None:
-            if re.search('bank',s.lower()) is not None :
-                return  True
+    def check_keywords(self, s):
+        if re.search('coronavirus', s.lower()) is not None or re.search('covid', s.lower()) is not None:
+            if re.search('bank', s.lower()) is not None:
+                return True
         return False
 
     
@@ -65,7 +71,7 @@ class CNBCScraper(NewspaperScraper):
         chrome_options = Options()
         chrome_options.add_argument("--headless")
 
-        service = Service('C:/Users/teren/Desktop/CNBC Scraper/financenews/chromedriver.exe')
+        service = Service(CHROMEDRIVER_PATH)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get('http://search.cnbc.com/rs/search/view.html?partnerId=2000'
                             + '&keywords=' + self.search_term1
@@ -76,9 +82,16 @@ class CNBCScraper(NewspaperScraper):
         )
         time.sleep(15)
 
+        # Switch to the iframe
+        driver.switch_to.frame(driver.find_element(By.XPATH, 'iframe_xpath'))
 
-        ele=driver.find_element_by_xpath('//select[@class="minimal SearchResults-searchResultsSelect"]')
-        ele.find_element_by_xpath(".//option[contains(text(), 'Articles')]").click()
+        # Now find the element inside the iframe
+        ele = driver.find_element(By.XPATH, '//select[@class="minimal SearchResults-searchResultsSelect"]')
+
+        # Switch back to the default content
+        driver.switch_to.default_content()
+
+        ele.find_element(By.XPATH, ".//option[contains(text(), 'Articles')]").click()
         time.sleep(sleep_time)
        
         for i in range(50):
@@ -86,9 +99,9 @@ class CNBCScraper(NewspaperScraper):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenOfPage;")
             time.sleep(2)
 
-        results=driver.find_elements_by_xpath('//div[@class="SearchResult-searchResult SearchResult-standardVariant"]')
+        results = driver.find_elements_by_xpath('//div[@class="SearchResult-searchResult SearchResult-standardVariant"]')
 
-        main_data=[]
+        main_data = []
 
         for result in results:
             try:
@@ -98,15 +111,15 @@ class CNBCScraper(NewspaperScraper):
                 link = result.find_element_by_xpath('.//a[@class="resultlink"]').get_attribute('href')
                 print(link)
                 if self.check_keywords(ltext) and not links.get(link, False) and self.check_dates(pub_date):
-                    links[link]=True
+                    links[link] = True
                     driver.execute_script("window.open('');")
                     driver.switch_to.window(driver.window_handles[1])
                     driver.get(link)
                     time.sleep(10)
-                    p=''
+                    p = ''
                     for para in driver.find_elements_by_xpath('//div[@class="group"]'):
                         for e in para.find_elements_by_xpath('.//p'):
-                            p+=e.text
+                            p += e.text
                         
                     data = {
                         'title': ltext,
@@ -127,16 +140,13 @@ class CNBCScraper(NewspaperScraper):
     
 start = input('From date in format yyyy-mm-dd :- ')
 end = input('To date in format yyyy-mm-dd :- ')
-def run_scraper (start,end):
-    scraper=CNBCScraper(start,end)
-    data=scraper.get_pages()
-    if len(data)==0:
+def run_scraper (start, end):
+    scraper = CNBCScraper(start, end)
+    data = scraper.get_pages()
+    if len(data) == 0:
         print('NO news related to current keywords in specified range')
     else:
-        scraper.write_to_csv(data,'CNBCScraper.csv')
+        scraper.write_to_csv(data, 'CNBCScraper.csv')
       
     
-run_scraper(start,end)
-
- 
-    
+run_scraper(start, end)
