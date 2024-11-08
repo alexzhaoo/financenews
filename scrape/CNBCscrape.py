@@ -81,16 +81,18 @@ def scrape_cnbc_search(search_term):
     
     # Find the search results section
     try:
-        search_results = driver.find_elements(By.CLASS_NAME, 'SearchResultCard')
+        search_results = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResult')
 
         # Loop through each search result to extract the title and link
         articles = []
         for result in search_results:
             try:
                 # Extract title and link
-                title_element = result.find_element(By.TAG_NAME, 'a')
+                title_element = result.find_element(By.CLASS_NAME, 'Card-title')
                 title = title_element.text
-                link = title_element.get_attribute('href')
+
+                link_element = result.find_element(By.TAG_NAME, 'a')
+                link = link_element.get_attribute('href')
 
                 # Store in a dictionary
                 articles.append({
