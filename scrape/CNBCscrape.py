@@ -5,6 +5,8 @@ import csv
 import time
 import os
 from dotenv import load_dotenv
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 # Load environment variables
 load_dotenv()
@@ -24,11 +26,14 @@ def scrape_cnbc_homepage():
     
     # Open the CNBC homepage
     driver.get('https://www.cnbc.com')
-    time.sleep(5)  # Wait for the page to load
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'LatestNews-item')))  # Explicit wait
+    
+    # Print page source for debugging
+    print(driver.page_source)
     
     # Find the 'LatestNews-list' section
     try:
-        latest_news_items = driver.find_elements(By.CLASS_NAME, 'LatestNews-item')
+        latest_news_items = driver.find_elements(By.CLASS_NAME, 'LatestNews-item')  # Verify this class name
 
         # Loop through each 'LatestNews-item' to extract the title and link
         articles = []
@@ -77,21 +82,21 @@ def scrape_cnbc_search(search_term):
     # Open the CNBC search page with the search term
     search_url = f'https://www.cnbc.com/search/?query={search_term}&qsearchterm={search_term}'
     driver.get(search_url)
-    time.sleep(5)  # Wait for the page to load
-    
+
+    # Use WebDriverWait to wait for search results to load
     # Find the search results section
     try:
+        # Using partial class name "SearchResult-searchResult" to find each search result
         search_results = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResult')
 
         # Loop through each search result to extract the title and link
         articles = []
         for result in search_results:
             try:
-                # Extract title and link
-                title_element = result.find_element(By.CLASS_NAME, 'Card-title')
+                # Extract title and link from within the result item
+                title_element = result.find_element(By.CLASS_NAME, 'SearchResult-searchResult')  # Finding the title within the item
                 title = title_element.text
-
-                link_element = result.find_element(By.TAG_NAME, 'a')
+                link_element = result.find_element(By.TAG_NAME, 'a')   # Finding the link within the item
                 link = link_element.get_attribute('href')
 
                 # Store in a dictionary
@@ -113,7 +118,7 @@ def scrape_cnbc_search(search_term):
             write_to_csv(articles)
         else:
             print("No articles found.")
-    
+        
     except Exception as e:
         print(f"Error finding the search results: {e}")
         driver.quit()
@@ -132,4 +137,5 @@ def write_to_csv(data):
     print('Data successfully written to CSV!')
 
 # Run the scraper with the search term "tech"
+#scrape_cnbc_homepage()
 scrape_cnbc_search('stocks')
