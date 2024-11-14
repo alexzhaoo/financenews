@@ -22,10 +22,24 @@ def remove_unwanted_columns(input_csv_path, output_csv_path):
     df = pd.read_csv(input_csv_path, encoding='ISO-8859-1')
     
     # Keep only the specified columns
-    df_filtered = df[['Date', 'Impact', 'Subject']]
+    df_filtered = df[['Date', 'Impact', ]]
     
     # Save the new dataframe to a new CSV file
     df_filtered.to_csv(output_csv_path, index=False)
 
 
 remove_unwanted_columns('../dataset.csv', '../dataset.csv')
+
+def remove_first_column(input_csv_path, output_csv_path):
+    # Read the CSV file
+    df = pd.read_csv(input_csv_path, encoding='ISO-8859-1')
+    
+    # Remove the first column
+    df = df.iloc[:, 1:]
+    
+    # Save the new dataframe to a new CSV file
+    df.to_csv(output_csv_path, index=False)
+
+
+remove_first_column('../all-data.csv', '../all-data.csv')
+
