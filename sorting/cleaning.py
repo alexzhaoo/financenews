@@ -51,20 +51,20 @@ def concatenate_columns(input_csv_path1, input_csv_path2, output_csv_path):
     # Read the second CSV file
     df2 = pd.read_csv(input_csv_path2, encoding='ISO-8859-1')
     
-    # Concatenate the first column of df1 with the 'Impact' column of df2
-    concatenated = df1.iloc[:, 0].astype(str) + df2['Impact'].astype(str)
+    # Remove the 'Impact' header from df2
+    df2.columns = df1.columns
     
-    # Create a new dataframe with the concatenated column
-    result_df = pd.DataFrame({'Concatenated': concatenated})
-
-    # Add a binary label '1' to every value
+    # Concatenate the rows of df1 and df2
+    result_df = pd.concat([df1, df2], axis=0)
+    
+    # Add a label column with 1s
     result_df['Label'] = 1
     
     # Save the new dataframe to a new CSV file
     result_df.to_csv(output_csv_path, index=False)
 
 
-# concatenate_columns('../all-data.csv', '../dataset.csv', '../PositiveLabel.csv')
+concatenate_columns('../all-data.csv', '../dataset.csv', '../PositiveLabel.csv')
 
 def quote_every_row(input_csv_path, output_csv_path):
     # Read the CSV file
@@ -99,4 +99,5 @@ def remove_commas(input_csv_path, output_csv_path):
     df.to_csv(output_csv_path, index=False)
 
 # remove_commas('../NegativeLabel.csv', '../NegativeLabel.csv')
+
 
