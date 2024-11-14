@@ -64,7 +64,7 @@ def concatenate_columns(input_csv_path1, input_csv_path2, output_csv_path):
     result_df.to_csv(output_csv_path, index=False)
 
 
-concatenate_columns('../all-data.csv', '../dataset.csv', '../PositiveLabel.csv')
+# concatenate_columns('../all-data.csv', '../dataset.csv', '../PositiveLabel.csv')
 
 def quote_every_row(input_csv_path, output_csv_path):
     # Read the CSV file
@@ -101,3 +101,16 @@ def remove_commas(input_csv_path, output_csv_path):
 # remove_commas('../NegativeLabel.csv', '../NegativeLabel.csv')
 
 
+
+def addlabel(input_csv_path, output_csv_path):
+    # Read the CSV file
+    df = pd.read_csv(input_csv_path, encoding='ISO-8859-1')
+    
+    # Add a label column with 1s
+    df['Label'] = 0
+    
+    # Save the new dataframe to a new CSV file
+    df.to_csv(output_csv_path, index=False)
+
+
+# addlabel('../NegativeLabel.csv', '../NegativeLabel.csv')
