@@ -72,7 +72,7 @@ def scrape_cnbc_homepage():
 def scrape_cnbc_search_results(query):
     # Set up WebDriver options
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--headless")  # Run headless if you prefer
+    chrome_options.add_argument("--headless")  
     chrome_options.add_argument("--ignore-certificate-errors")
     
     # Start the WebDriver
@@ -86,30 +86,36 @@ def scrape_cnbc_search_results(query):
     
     # Comment out or remove the page source print statement
     # print(driver.page_source)
-    
+    articles = []
+    last_height = driver.execute_script("return document.body.scrollHeight")
     # Find the search result items
     try:
-        search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
 
-        # Loop through each search result item to extract the title and link
-        articles = []
-        for item in search_result_items:
-            try:
-                # Extract title and link
-                link_element = item.find_element(By.CLASS_NAME, 'resultlink')
+        while len(articles) < 20:
 
-                title = link_element.text.strip()
-                link = link_element.get_attribute('href')
+            # Scroll down to the bottom of the page and load articles
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")     
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultTitle')))
 
-                # Append the data
-                if title and link:
-                    articles.append({'title': title, 'link': link})
+            # Loop through each search result item to extract the title and link
+            search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
+            for item in search_result_items:
+                try:
+                    # Extract title and link
+                    link_element = item.find_element(By.CLASS_NAME, 'resultlink')
 
-                    # Debug log
-                    print(f"Title: {title}\nLink: {link}\n")
-                
-            except Exception as e:
-                print(f"Error extracting article: {e}")
+                    title = link_element.text.strip()
+                    link = link_element.get_attribute('href')
+
+                    # Append the data
+                    if title and link:
+                        articles.append({'title': title, 'link': link})
+
+                        # Debug log
+                        print(f"Title: {title}\nLink: {link}\n")
+                    
+                except Exception as e:
+                    print(f"Error extracting article: {e}")
 
         # Close the driver after scraping
         driver.quit()
