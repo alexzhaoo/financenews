@@ -82,14 +82,14 @@ def scrape_cnbc_search_results(query):
     # Open the CNBC search results page
     search_url = f'https://www.cnbc.com/search/?query={query}&qsearchterm={query}'
     driver.get(search_url)
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultCard')))  # Explicit wait
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultTitle')))  # Explicit wait
     
     # Print page source for debugging
     print(driver.page_source)
     
     # Find the search result items
     try:
-        search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultCard')
+        search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
 
 
         # Loop through each search result item to extract the title and link
