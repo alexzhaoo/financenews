@@ -84,13 +84,12 @@ def scrape_cnbc_search_results(query):
     driver.get(search_url)
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultTitle')))  # Explicit wait
     
-    # Print page source for debugging
-    print(driver.page_source)
+    # Comment out or remove the page source print statement
+    # print(driver.page_source)
     
     # Find the search result items
     try:
         search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
-
 
         # Loop through each search result item to extract the title and link
         articles = []
@@ -109,7 +108,6 @@ def scrape_cnbc_search_results(query):
                     # Debug log
                     print(f"Title: {title}\nLink: {link}\n")
                 
-
             except Exception as e:
                 print(f"Error extracting article: {e}")
 
