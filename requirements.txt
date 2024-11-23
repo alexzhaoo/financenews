@@ -2,3 +2,8 @@ pytz
 selenium
 python-dateutil
 pandas
+transformers
+torch 
+torchvision
+torchaudio
+nltk
