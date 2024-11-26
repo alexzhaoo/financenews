@@ -8,3 +8,5 @@ torchvision
 torchaudio
 nltk
 scikit-learn
+matplotlib
+seaborn
