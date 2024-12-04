@@ -77,6 +77,7 @@ def scrape_cnbc_search_results(query, max_articles):
     
     # Start the WebDriver
     service = Service(CHROMEDRIVER_PATH)
+    global driver
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
     # Open the CNBC search results page
@@ -106,6 +107,7 @@ def scrape_cnbc_search_results(query, max_articles):
 
                     # Append unique data
                     if title and link and link not in seen_articles:
+                        article_text = extract_article_text(link)
                         articles.append({'title': title, 'link': link})
                         seen_articles.add(link) # Mark the article as seen
 
@@ -137,23 +139,19 @@ def scrape_cnbc_search_results(query, max_articles):
         driver.quit()
 
 def extract_article_text(article_url):
-    # Set up WebDriver options
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--headless")  
-    chrome_options.add_argument("--ignore-certificate-errors")
-    
-    service = Service(CHROMEDRIVER_PATH)
-    driver = webdriver.Chrome(service=service, options=chrome_options)
     try:
-        driver.get(article_url)
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
-        article_body = driver.find_element(By.CLASS_NAME, 'ArticleBody-articleBody')
-        paragraphs = article_body.find_elements(By.TAG_NAME, 'p')
-        article_text = "\n".join([para.text for para in paragraphs])
-        return article_text
+        li_element = WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.CLASS_NAME, 'group'))
+        )
+
+        for item in li_element:
+            element = item.find_element(By.TAG_NAME("li"))
+            print(element)
+
     except Exception as e:
         print(f"Error extracting text from {article_url}: {e}")
         return ""
+
 
 # Function to write the scraped data to a CSV file
 def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
@@ -168,4 +166,4 @@ def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
     print('Data successfully written to CSV!')
 
 #scrape_cnbc_homepage()
-scrape_cnbc_search_results('stocks', max_articles=3)
+scrape_cnbc_search_results('stocks', max_articles=1)
