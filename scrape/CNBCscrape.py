@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 load_dotenv()
 
 CHROMEDRIVER_PATH = os.getenv('CHROMEDRIVER_PATH')
-
+'''
 # Function to scrape homepage data
 def scrape_cnbc_homepage():
     # Set up WebDriver options
@@ -67,7 +67,7 @@ def scrape_cnbc_homepage():
     except Exception as e:
         print(f"Error finding the LatestNews list: {e}")
         driver.quit()
-
+'''
 # Function to scrape search results data
 def scrape_cnbc_search_results(query, max_articles):
     # Set up WebDriver options
@@ -135,6 +135,25 @@ def scrape_cnbc_search_results(query, max_articles):
     except Exception as e:
         print(f"Error finding the search results: {e}")
         driver.quit()
+
+def extract_article_text(article_url):
+    # Set up WebDriver options
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument("--headless")  
+    chrome_options.add_argument("--ignore-certificate-errors")
+    
+    service = Service(CHROMEDRIVER_PATH)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    try:
+        driver.get(article_url)
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
+        article_body = driver.find_element(By.CLASS_NAME, 'ArticleBody-articleBody')
+        paragraphs = article_body.find_elements(By.TAG_NAME, 'p')
+        article_text = "\n".join([para.text for para in paragraphs])
+        return article_text
+    except Exception as e:
+        print(f"Error extracting text from {article_url}: {e}")
+        return ""
 
 # Function to write the scraped data to a CSV file
 def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
