@@ -4,6 +4,8 @@ from selenium.webdriver.common.by import By
 import csv
 import time
 import os
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.keys import Keys
 from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -72,8 +74,9 @@ def scrape_cnbc_homepage():
 def scrape_cnbc_search_results(query, max_articles):
     # Set up WebDriver options
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--headless")  
+    #chrome_options.add_argument("--headless")  
     chrome_options.add_argument("--ignore-certificate-errors")
+    chrome_options.add_argument('--ignore-ssl-errors')
     
     # Start the WebDriver
     service = Service(CHROMEDRIVER_PATH)
@@ -107,7 +110,6 @@ def scrape_cnbc_search_results(query, max_articles):
 
                     # Append unique data
                     if title and link and link not in seen_articles:
-                        article_text = extract_article_text(link)
                         articles.append({'title': title, 'link': link})
                         seen_articles.add(link) # Mark the article as seen
 
@@ -138,21 +140,98 @@ def scrape_cnbc_search_results(query, max_articles):
         print(f"Error finding the search results: {e}")
         driver.quit()
 
-def extract_article_text(article_url):
-    try:
-        li_element = WebDriverWait(driver, 10).until(
-            EC.visibility_of_element_located((By.CLASS_NAME, 'group'))
-        )
+# Function to scrape bullet points from an article page
+def scrape_article_bullet_points(article_url):
 
-        for item in li_element:
-            element = item.find_element(By.TAG_NAME("li"))
-            print(element)
+    #temporarily set up
+    chrome_options = webdriver.ChromeOptions()
+    #necessary to sign in if headless mode is on
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+    chrome_options.add_argument("--allow-insecure-localhost")
+    chrome_options.add_argument("--headless")  
+    chrome_options.add_argument("--ignore-certificate-errors")
+    chrome_options.add_argument('--ignore-ssl-errors')
+    service = Service(CHROMEDRIVER_PATH)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    sign_in(driver)
+    
+    driver.get(article_url)
+    '''
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
+
+    bullet_points = []
+    try:
+        # Debug log
+        print(f"Scraping article: {article_url}")
+
+        # Ensure the specific section with class 'ArticleBody-articleBody' is loaded
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
+
+        # Find elements containing bullet points within 'ArticleBody-articleBody'
+        article_body = driver.find_element(By.CLASS_NAME, 'ArticleBody-articleBody')
+        ul_elements = article_body.find_elements(By.CLASS_NAME, 'group')
+
+        print(f"Found {len(ul_elements)} 'ul' elements in ArticleBody-articleBody.")
+
+        for ul in ul_elements:
+            li_elements = ul.find_elements(By.TAG_NAME, 'li')
+            print(f"Found {len(li_elements)} 'li' elements in ul.")
+
+            for li in li_elements:
+                bullet_points.append(li.text.strip())
+
+        # Debug log
+        print(f"Bullet points from {article_url}: {bullet_points}")
 
     except Exception as e:
-        print(f"Error extracting text from {article_url}: {e}")
-        return ""
+        print(f"Error extracting bullet points: {e}")
+    finally:
+        driver.quit()
 
+    return bullet_points
+    '''
+    
+def sign_in(driver):
+        try:
+            driver.get('https://www.cnbc.com')
 
+            sign_in_link = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.XPATH, '//a[text()="SIGN IN"]'))
+            )
+            sign_in_link.click()
+            print("Clicked the SIGN IN link.")
+
+            # Wait for the sign-in modal to be displayed
+            WebDriverWait(driver, 20).until(
+                EC.visibility_of_element_located((By.ID, 'sign-in'))
+            )
+            print("Sign-in modal is visible.")
+
+            # Enter the username
+            email_input = driver.find_element(By.NAME, 'email')
+            email_input.send_keys('cnbcscrape@gmail.com')
+            print("Entered email.")
+
+            # Enter the password
+            password_input = driver.find_element(By.NAME, 'password')
+            password_input.send_keys('Cnbc123!')
+            print("Entered password.")
+
+            # Submit the form
+            password_input.send_keys(Keys.RETURN)
+            print("Submitted the sign-in form.")
+
+            # Wait for the sign-in process to complete
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
+            )
+            print("Sign-in was successful.")
+            return True
+        except TimeoutException:
+            print("Sign-in failed or took too long.")
+            return False
+        
 # Function to write the scraped data to a CSV file
 def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
     print(f"Writing {len(data)} articles to {file_name}...")
@@ -166,4 +245,6 @@ def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
     print('Data successfully written to CSV!')
 
 #scrape_cnbc_homepage()
-scrape_cnbc_search_results('stocks', max_articles=1)
+#scrape_cnbc_search_results('stocks', max_articles=1)
+points = scrape_article_bullet_points('https://www.cnbc.com/2024/12/03/wednesdays-big-stock-stories-whats-likely-to-move-the-market.html?&qsearchterm=stocks')
+print(points)
