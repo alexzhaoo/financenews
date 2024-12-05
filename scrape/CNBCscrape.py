@@ -14,7 +14,14 @@ from selenium.webdriver.support import expected_conditions as EC
 load_dotenv()
 
 CHROMEDRIVER_PATH = os.getenv('CHROMEDRIVER_PATH')
-COOKIES_FILE_PATH = '../cookies.json'  # Path to the cookies file
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+COOKIES_FILE_PATH = os.path.join(SCRIPT_DIR, '../cookies.json')  # Path to the cookies file
+
+if not os.path.exists(COOKIES_FILE_PATH):
+    print(f"Cookies file not found at {COOKIES_FILE_PATH}")
+else:
+    print(f"Cookies file found at {COOKIES_FILE_PATH}")
 
 def load_cookies(driver, cookies_file_path):
     with open(cookies_file_path, 'r') as cookies_file:
@@ -23,6 +30,8 @@ def load_cookies(driver, cookies_file_path):
             # Adjust the cookie domain if necessary
             if 'sameSite' in cookie:
                 del cookie['sameSite']
+            if 'domain' in cookie:
+                cookie['domain'] = '.cnbc.com'
             driver.add_cookie(cookie)
 
 def sign_in(driver):
