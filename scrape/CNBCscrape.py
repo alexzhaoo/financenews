@@ -154,10 +154,16 @@ def scrape_article_bullet_points(article_url):
     chrome_options.add_argument('--ignore-ssl-errors')
     service = Service(CHROMEDRIVER_PATH)
     driver = webdriver.Chrome(service=service, options=chrome_options)
-    sign_in(driver)
+    
+    if not sign_in(driver):
+        retry = 3
+        for i in range(retry):
+            print("Retry sign in attempt", i+1, "of 3")
+            if sign_in(driver):
+                break
     
     driver.get(article_url)
-    '''
+    
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
 
     bullet_points = []
@@ -190,7 +196,7 @@ def scrape_article_bullet_points(article_url):
         driver.quit()
 
     return bullet_points
-    '''
+    
     
 def sign_in(driver):
         try:
