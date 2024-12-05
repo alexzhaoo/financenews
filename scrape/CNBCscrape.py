@@ -2,7 +2,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 import csv
-import time
 import os
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
@@ -14,62 +13,80 @@ from selenium.webdriver.support import expected_conditions as EC
 load_dotenv()
 
 CHROMEDRIVER_PATH = os.getenv('CHROMEDRIVER_PATH')
-'''
-# Function to scrape homepage data
-def scrape_cnbc_homepage():
-    # Set up WebDriver options
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--headless")  # Run headless if you prefer
-    chrome_options.add_argument("--ignore-certificate-errors")
-    
-    # Start the WebDriver
-    service = Service(CHROMEDRIVER_PATH)
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    
-    # Open the CNBC homepage
-    driver.get('https://www.cnbc.com')
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'LatestNews-item')))  # Explicit wait
-    
-    # Print page source for debugging
-    print(driver.page_source)
-    
-    # Find the 'LatestNews-list' section
+
+def sign_in(driver):
     try:
-        latest_news_items = driver.find_elements(By.CLASS_NAME, 'LatestNews-item')  # Verify this class name
+        driver.get('https://www.cnbc.com')
 
-        # Loop through each 'LatestNews-item' to extract the title and link
-        articles = []
-        for item in latest_news_items:
-            try:
-                # Extract title and link
-                title_element = item.find_element(By.TAG_NAME, 'a')
-                title = title_element.text
-                link = title_element.get_attribute('href')
+        sign_in_link = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, '//a[text()="SIGN IN"]'))
+        )
+        sign_in_link.click()
+        #print("Clicked the SIGN IN link.")
 
-                # Store in a dictionary
-                articles.append({
-                    'title': title,
-                    'link': link
-                })
+        # Wait for the sign-in modal to be displayed
+        WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.ID, 'sign-in'))
+        )
+        #print("Sign-in modal is visible.")
 
-                print(f"Title: {title}\nLink: {link}\n")
+        # Enter the username
+        email_input = driver.find_element(By.NAME, 'email')
+        email_input.send_keys('cnbcscrape@gmail.com')
+        #print("Entered email.")
 
-            except Exception as e:
-                print(f"Error extracting article: {e}")
+        # Enter the password
+        password_input = driver.find_element(By.NAME, 'password')
+        password_input.send_keys('Cnbc123!')
+        #print("Entered password.")
 
-        # Close the driver after scraping
-        driver.quit()
+        # Submit the form
+        password_input.send_keys(Keys.RETURN)
+        #print("Submitted the sign-in form.")
 
-        # Write articles to CSV
-        if articles:
-            write_to_csv(articles)
-        else:
-            print("No articles found.")
+        # Wait for the sign-in process to complete
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
+        )
+        print("Sign-in was successful.")
+        return True
+    except TimeoutException:
+        print("Sign-in failed or took too long.")
+        return False
+
+def scrape_article_bullet_points(driver, article_url):
+    driver.get(article_url)
     
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
+
+    bullet_points = []
+    try:
+        # Debug log
+        #print(f"Scraping article: {article_url}")
+
+        # Find elements containing bullet points
+        groups = driver.find_elements(By.CLASS_NAME, 'group')
+        #print(f"Found {len(groups)} 'group' elements.")
+
+        for group in groups:
+            ul_elements = group.find_elements(By.TAG_NAME, 'ul')
+            #print(f"Found {len(ul_elements)} 'ul' elements in group.")
+
+            for ul in ul_elements:
+                li_elements = ul.find_elements(By.TAG_NAME, 'li')
+                #print(f"Found {len(li_elements)} 'li' elements in ul.")
+
+                for li in li_elements:
+                    bullet_points.append(li.text.strip())
+
+        # Debug log
+        #print(f"Bullet points from {article_url}: {bullet_points}")
+
     except Exception as e:
-        print(f"Error finding the LatestNews list: {e}")
-        driver.quit()
-'''
+        print(f"Error extracting bullet points: {e}")
+
+    return bullet_points
+
 # Function to scrape search results data
 def scrape_cnbc_search_results(query, max_articles):
     # Set up WebDriver options
@@ -140,104 +157,6 @@ def scrape_cnbc_search_results(query, max_articles):
         print(f"Error finding the search results: {e}")
         driver.quit()
 
-# Function to scrape bullet points from an article page
-def scrape_article_bullet_points(article_url):
-
-    #temporarily set up
-    chrome_options = webdriver.ChromeOptions()
-    #necessary to sign in if headless mode is on
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-
-    chrome_options.add_argument("--allow-insecure-localhost")
-    chrome_options.add_argument("--headless")  
-    chrome_options.add_argument("--ignore-certificate-errors")
-    chrome_options.add_argument('--ignore-ssl-errors')
-    service = Service(CHROMEDRIVER_PATH)
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    
-    if not sign_in(driver):
-        retry = 3
-        for i in range(retry):
-            print("Retry sign in attempt", i+1, "of 3")
-            if sign_in(driver):
-                break
-    
-    driver.get(article_url)
-    
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
-
-    bullet_points = []
-    try:
-        # Debug log
-        print(f"Scraping article: {article_url}")
-
-        # Ensure the specific section with class 'ArticleBody-articleBody' is loaded
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
-
-        # Find elements containing bullet points within 'ArticleBody-articleBody'
-        article_body = driver.find_element(By.CLASS_NAME, 'ArticleBody-articleBody')
-        ul_elements = article_body.find_elements(By.CLASS_NAME, 'group')
-
-        print(f"Found {len(ul_elements)} 'ul' elements in ArticleBody-articleBody.")
-
-        for ul in ul_elements:
-            li_elements = ul.find_elements(By.TAG_NAME, 'li')
-            print(f"Found {len(li_elements)} 'li' elements in ul.")
-
-            for li in li_elements:
-                bullet_points.append(li.text.strip())
-
-        # Debug log
-        print(f"Bullet points from {article_url}: {bullet_points}")
-
-    except Exception as e:
-        print(f"Error extracting bullet points: {e}")
-    finally:
-        driver.quit()
-
-    return bullet_points
-    
-    
-def sign_in(driver):
-        try:
-            driver.get('https://www.cnbc.com')
-
-            sign_in_link = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, '//a[text()="SIGN IN"]'))
-            )
-            sign_in_link.click()
-            print("Clicked the SIGN IN link.")
-
-            # Wait for the sign-in modal to be displayed
-            WebDriverWait(driver, 20).until(
-                EC.visibility_of_element_located((By.ID, 'sign-in'))
-            )
-            print("Sign-in modal is visible.")
-
-            # Enter the username
-            email_input = driver.find_element(By.NAME, 'email')
-            email_input.send_keys('cnbcscrape@gmail.com')
-            print("Entered email.")
-
-            # Enter the password
-            password_input = driver.find_element(By.NAME, 'password')
-            password_input.send_keys('Cnbc123!')
-            print("Entered password.")
-
-            # Submit the form
-            password_input.send_keys(Keys.RETURN)
-            print("Submitted the sign-in form.")
-
-            # Wait for the sign-in process to complete
-            WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
-            )
-            print("Sign-in was successful.")
-            return True
-        except TimeoutException:
-            print("Sign-in failed or took too long.")
-            return False
-        
 # Function to write the scraped data to a CSV file
 def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
     print(f"Writing {len(data)} articles to {file_name}...")
@@ -250,7 +169,47 @@ def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
 
     print('Data successfully written to CSV!')
 
-#scrape_cnbc_homepage()
-#scrape_cnbc_search_results('stocks', max_articles=1)
-points = scrape_article_bullet_points('https://www.cnbc.com/2024/12/03/wednesdays-big-stock-stories-whats-likely-to-move-the-market.html?&qsearchterm=stocks')
+# Set up WebDriver options
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+chrome_options.add_argument("--allow-insecure-localhost")
+# chrome_options.add_argument("--headless")  
+chrome_options.add_argument("--ignore-certificate-errors")
+chrome_options.add_argument('--ignore-ssl-errors')
+service = Service(CHROMEDRIVER_PATH)
+driver = webdriver.Chrome(service=service, options=chrome_options)
+
+if not sign_in(driver):
+    retry = 3
+    for i in range(retry):
+        print("Retry sign in attempt", i+1, "of 3")
+        if sign_in(driver):
+            break
+
+# Ensure the session is maintained by checking the profile icon
+try:
+    WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
+    )
+    print("Session is maintained after sign-in.")
+except TimeoutException:
+    print("Session is not maintained after sign-in.")
+    driver.quit()
+    exit()
+
+# Navigate to the article URL and check if the session is still active
+driver.get('https://www.cnbc.com/2024/12/03/wednesdays-big-stock-stories-whats-likely-to-move-the-market.html?&qsearchterm=stocks')
+try:
+    WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
+    )
+    print("Session is still active on the article page.")
+except TimeoutException:
+    print("Session is not active on the article page.")
+    driver.quit()
+    exit()
+
+points = scrape_article_bullet_points(driver, 'https://www.cnbc.com/2024/12/03/wednesdays-big-stock-stories-whats-likely-to-move-the-market.html?&qsearchterm=stocks')
 print(points)
+
+driver.quit()
