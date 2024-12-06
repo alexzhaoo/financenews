@@ -54,9 +54,31 @@ def sign_in(driver):
         print("Sign-in failed or took too long.")
         return False
 
+def check_subscription_requirement(driver, article_url):
+    # Open the article in a new tab
+    driver.execute_script("window.open('');")
+    driver.switch_to.window(driver.window_handles[1])
+    driver.get(article_url)
+
+    # Try to skip articles that need subscriptions
+    try:
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'ArticleGate-proGate'))
+        )
+        print(f"Skipping {article_url} because subscription is required")
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        return True
+
+    except TimeoutException:
+        # Proceed if the subscription gate is not found
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        return False
+
 def scrape_article_bullet_points(driver, article_url):
     driver.get(article_url)
-    
+
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
 
     bullet_points = []
@@ -99,11 +121,14 @@ def scrape_cnbc_search_results(driver, query, max_articles):
                     link = link_element.get_attribute('href')
 
                     if title and link and link not in seen_articles:
-                        articles.append({'title': title, 'link': link})
-                        seen_articles.add(link)
+                        need_subscription = check_subscription_requirement(driver, link)
+                        if not need_subscription:
+                            articles.append({'title': title, 'link': link})
+                            seen_articles.add(link)
 
-                        print(f"Title: {title}\nLink: {link}\n")
-                        print(scrape_article_bullet_points(driver, link))
+                            print(f"Title: {title}\nLink: {link}\n")
+                            bullet_points = scrape_article_bullet_points(driver, link)
+                            print(bullet_points)
 
                     if len(articles) >= max_articles:
                         break
@@ -166,6 +191,6 @@ except TimeoutException:
     driver.quit()
     exit()
 
-scrape_cnbc_search_results(driver, 'stocks', 1)
+scrape_cnbc_search_results(driver, 'stocks', 2)
 
 driver.quit()
