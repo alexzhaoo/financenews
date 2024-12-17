@@ -1,5 +1,5 @@
 selenium-screenshots/
 selenium-logs/
 chromedriver.exe
-.venv
+venv/
 .env
