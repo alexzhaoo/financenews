@@ -1,21 +1,20 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
 import csv
 import os
 import json
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from dotenv import load_dotenv
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
+from dotenv import load_dotenv
 import time
 
 # Load environment variables
 load_dotenv()
 
 CHROMEDRIVER_PATH = os.getenv('CHROMEDRIVER_PATH')
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 COOKIES_FILE_PATH = os.path.join(SCRIPT_DIR, '../cookies.json')  # Path to the cookies file
 
@@ -28,7 +27,6 @@ def load_cookies(driver, cookies_file_path):
     with open(cookies_file_path, 'r') as cookies_file:
         cookies = json.load(cookies_file)
         for cookie in cookies:
-            # Adjust the cookie domain if necessary
             if 'sameSite' in cookie:
                 del cookie['sameSite']
             if 'domain' in cookie:
@@ -38,14 +36,8 @@ def load_cookies(driver, cookies_file_path):
 def sign_in(driver):
     try:
         driver.get('https://www.cnbc.com')
-        
-        # Load cookies
         load_cookies(driver, COOKIES_FILE_PATH)
-        
-        # Refresh the page to apply cookies
         driver.refresh()
-
-        # Wait for the sign-in process to complete
         WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
         )
@@ -57,77 +49,71 @@ def sign_in(driver):
 
 def check_subscription_requirement(driver, article_url):
     driver.get(article_url)
-
     try:
         WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.CLASS_NAME, 'ArticleGate-proGate'))
         )
         print(f"Skipping {article_url} because subscription is required")
         return True
-
     except TimeoutException:
         return False
 
 def scrape_article_bullet_points(driver, article_url):
     driver.get(article_url)
-
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
-
     bullet_points = []
     try:
-        groups = driver.find_elements(By.CLASS_NAME, 'group')
+        groups = driver.find_elements(By.XPATH, "//div[contains(@class, 'group')]")
+        print(f"Found {len(groups)} group elements.")
 
         for group in groups:
-            # Check for <p> tags
+            # Debug group HTML
+            print(group.get_attribute('outerHTML'))
+
             p_elements = group.find_elements(By.TAG_NAME, 'p')
+            print(f"Found {len(p_elements)} <p> elements")
+            
             for p in p_elements:
                 bullet_points.append(p.text.strip())
-
-            # Check for <ul> tags and their <li> 
             ul_elements = group.find_elements(By.TAG_NAME, 'ul')
             for ul in ul_elements:
                 li_elements = ul.find_elements(By.TAG_NAME, 'li')
                 for li in li_elements:
                     bullet_points.append(li.text.strip())
-
     except Exception as e:
         print(f"Error extracting bullet points: {e}")
 
+    print(bullet_points)
     return bullet_points
 
-# Function to scrape search results data
 def scrape_cnbc_search_results(driver, query, max_articles):
     search_url = f'https://www.cnbc.com/search/?query={query}&qsearchterm={query}'
     driver.get(search_url)
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultTitle')))
-
     articles = []
     seen_articles = set()
     retries = 3  # Number of retries for stale element references
-
     try:
         while len(articles) < max_articles:
             search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
-            
             for item in search_result_items:
                 try:
                     link_element = item.find_element(By.CLASS_NAME, 'resultlink')
-
                     title = link_element.text.strip()
                     link = link_element.get_attribute('href')
-
                     if title and link and link not in seen_articles:
-                        seen_articles.add(link)  # Mark the article as seen
+                        seen_articles.add(link)
                         need_subscription = check_subscription_requirement(driver, link)
                         if not need_subscription:
                             articles.append({'title': title, 'link': link})
                             print(f"Title: {title}\nLink: {link} does not require subscription")
-                            print(scrape_article_bullet_points(driver, link))
+                            bullet_points = scrape_article_bullet_points(driver, link)
+                            articles[-1]['bullet_points'] = bullet_points
+                            print(bullet_points)
                         else:
                             print(f"Skipping {link} because subscription is required")
-
-                    if len(articles) >= max_articles:
-                        break
+                        if len(articles) >= max_articles:
+                            break
 
                 except StaleElementReferenceException:
                     print("Stale element reference exception caught. Retrying...")
@@ -135,54 +121,29 @@ def scrape_cnbc_search_results(driver, query, max_articles):
                     if retries > 0:
                         driver.get(search_url)  # Reload the search results page
                         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultTitle')))
+                        time.sleep(1)
                     else:
                         print("Max retries reached. Exiting...")
                         break
+
                 except Exception as e:
                     print(f"Error extracting article: {e}")
-
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultTitle')))
-
-        driver.quit()
-
-        if articles:
-            print(f"Scraped {len(articles)} articles.")
-            write_to_csv(articles)
-        else:
-            print("No articles to scrape.")
-
     except Exception as e:
         print(f"Error finding the search results: {e}")
-        driver.quit()
-        return []
-
     return articles
 
-# Function to write the scraped data to a CSV file
-def write_to_csv(data, file_name='CNBCHomepageNews.csv'):
+def write_to_csv(data, file_name='CNBCSearchResults_with_BulletPoints.csv'):
     print(f"Writing {len(data)} articles to {file_name}...")
-    
     keys = data[0].keys()
     with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
         dict_writer = csv.DictWriter(output_file, keys)
         dict_writer.writeheader()
         dict_writer.writerows(data)
-
     print('Data successfully written to CSV!')
-
-# Function to scrape bullet points from the collected article links
-def scrape_articles(driver, articles):
-    for article in articles:
-        bullet_points = scrape_article_bullet_points(driver, article['link'])
-        article['bullet_points'] = bullet_points
-        print(f"Bullet points for {article['title']}:\n{bullet_points}")
-
-    return articles
 
 # Set up WebDriver options
 chrome_options = webdriver.ChromeOptions()
-
 chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 chrome_options.add_argument("--allow-insecure-localhost")
 chrome_options.add_argument("--ignore-certificate-errors")
@@ -191,9 +152,8 @@ chrome_options.add_argument('--disable-web-security')
 chrome_options.add_argument('--disable-site-isolation-trials')
 service = Service(CHROMEDRIVER_PATH)
 
-# Sign in with cookies to avoid Capthca errors
+# Sign in with cookies to avoid Captcha errors
 driver = webdriver.Chrome(service=service, options=chrome_options)
-
 if not sign_in(driver):
     retry = 3
     for i in range(retry):
@@ -211,14 +171,14 @@ except TimeoutException:
     driver.quit()
     exit()
 
-articles = scrape_cnbc_search_results(driver, 'stocks', 1)
+# Open the CSV file once and write incrementally
+file_name = 'CNBCSearchResults_with_BulletPoints.csv'
+with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
+    dict_writer = csv.DictWriter(output_file, fieldnames=['title', 'link', 'bullet_points'])
+    dict_writer.writeheader()
+
+    articles = scrape_cnbc_search_results(driver, 'stocks', 1)
+    for article in articles:
+        dict_writer.writerow(article)
 
 driver.quit()
-
-if articles:
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    articles = scrape_articles(driver, articles)
-    driver.quit()
-    write_to_csv(articles, 'CNBCSearchResults_with_BulletPoints.csv')
-else:
-    print("No articles to scrape.")
