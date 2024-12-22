@@ -64,18 +64,20 @@ def scrape_article_bullet_points(driver, article_url):
     bullet_points = []
     try:
         groups = driver.find_elements(By.XPATH, "//div[contains(@class, 'group')]")
-        print(f"Found {len(groups)} group elements.")
+        #print(f"Found {len(groups)} group elements.")
 
         for group in groups:
             # Debug group HTML
-            print(group.get_attribute('outerHTML'))
+            #print(group.get_attribute('outerHTML'))
 
             p_elements = group.find_elements(By.TAG_NAME, 'p')
-            print(f"Found {len(p_elements)} <p> elements")
+            #print(f"Found {len(p_elements)} <p> elements")
             
             for p in p_elements:
                 bullet_points.append(p.text.strip())
+
             ul_elements = group.find_elements(By.TAG_NAME, 'ul')
+            #print(f"Found {len(ul_elements)} <ul> elements")
             for ul in ul_elements:
                 li_elements = ul.find_elements(By.TAG_NAME, 'li')
                 for li in li_elements:
@@ -83,7 +85,7 @@ def scrape_article_bullet_points(driver, article_url):
     except Exception as e:
         print(f"Error extracting bullet points: {e}")
 
-    print(bullet_points)
+    #print(bullet_points)
     return bullet_points
 
 def scrape_cnbc_search_results(driver, query, max_articles):
@@ -104,12 +106,13 @@ def scrape_cnbc_search_results(driver, query, max_articles):
                     if title and link and link not in seen_articles:
                         seen_articles.add(link)
                         need_subscription = check_subscription_requirement(driver, link)
+                        
                         if not need_subscription:
                             articles.append({'title': title, 'link': link})
                             print(f"Title: {title}\nLink: {link} does not require subscription")
                             bullet_points = scrape_article_bullet_points(driver, link)
-                            articles[-1]['bullet_points'] = bullet_points
-                            print(bullet_points)
+                            articles[-1]['bullet_points'] = bullet_points # adds bullet points to the last article in the list
+                            #print(bullet_points)
                         else:
                             print(f"Skipping {link} because subscription is required")
                         if len(articles) >= max_articles:
