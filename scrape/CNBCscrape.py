@@ -136,14 +136,14 @@ def scrape_cnbc_search_results(driver, query, max_articles):
         print(f"Error finding the search results: {e}")
     return articles
 
-def write_to_csv(data, file_name='CNBCSearchResults_with_BulletPoints.csv'):
+'''def write_to_csv(data, file_name='CNBCSearchResults_with_BulletPoints.csv'):
     print(f"Writing {len(data)} articles to {file_name}...")
     keys = data[0].keys()
     with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
         dict_writer = csv.DictWriter(output_file, keys)
         dict_writer.writeheader()
         dict_writer.writerows(data)
-    print('Data successfully written to CSV!')
+    print('Data successfully written to CSV!')'''
 
 # Set up WebDriver options
 chrome_options = webdriver.ChromeOptions()
@@ -180,8 +180,10 @@ with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
     dict_writer = csv.DictWriter(output_file, fieldnames=['title', 'link', 'bullet_points'])
     dict_writer.writeheader()
 
-    articles = scrape_cnbc_search_results(driver, 'stocks', 1)
+    articles = scrape_cnbc_search_results(driver, 'stocks', 2)
     for article in articles:
+        print('writing article: ',article['title'], 'to csv')
         dict_writer.writerow(article)
+        
 
 driver.quit()
