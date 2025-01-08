@@ -117,6 +117,9 @@ def scrape_cnbc_search_results(driver, query, max_articles):
                         search_result_eyebrows = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultEyebrow')
                 if retry_count == retries:
                     print("Max retries reached. Skipping element.")
+            # Scroll down the page
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)  # Wait for new content to load
 
             # Break the loop if we have enough articles
             if len(articles) >= max_articles:
@@ -140,7 +143,7 @@ today_date = datetime.date.today().strftime('%Y-%m-%d')
 try:
     if sign_in(driver):
         query = "stocks"
-        max_articles = 3
+        max_articles = 2
         articles = scrape_cnbc_search_results(driver, query, max_articles)
 
         print(f"Scraped {len(articles)} articles. Fetching contents...")
@@ -153,26 +156,28 @@ try:
             try: # Articles with no content scraped won't be added to the db
                 print('writing article: ',article['title'], 'to csv')
                 #print(article)
-                #data = (article['title'], article['link'],today_date, article['content'])
-                #cursor.execute(sqlquery, data)
-                #conn.commit()
+                data = (article['title'], article['link'],today_date, article['content'])
+                cursor.execute(sqlquery, data)
+                conn.commit()
             except:
+                print('Article: ',article, 'cannot be written as no content was scraped.')
                 continue
             
 
 finally:
     driver.quit()
 
-'''
+
+''' # For debugging purposes
+# Print all the current data
 cursor.execute("SELECT * FROM scraped_data")
 rows = cursor.fetchall()
-
 for row in rows:
     print(row)
 
-
-cursor.execute("TRUNCATE TABLE scraped_data;")
+cursor.execute("TRUNCATE TABLE scraped_data;") # Clear the db
 '''
+
 # Close SQL database connection 
 cursor.close()
 conn.close()
