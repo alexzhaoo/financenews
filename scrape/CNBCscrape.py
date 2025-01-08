@@ -58,6 +58,10 @@ def check_subscription_requirement(driver, article_url):
     except TimeoutException:
         return False
 
+def new_sub_check(driver):
+
+    return True
+
 def scrape_article_bullet_points(driver, article_url):
     driver.get(article_url)
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
@@ -97,9 +101,12 @@ def scrape_cnbc_search_results(driver, query, max_articles):
     retries = 3  # Number of retries for stale element references
     try:
         while len(articles) < max_articles:
+            search_for_sub = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultEyebrow')
             search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
+            
             for item in search_result_items:
                 try:
+                    need_subscription = item.find_element(By.CLASS_NAME, 'resultlink')
                     link_element = item.find_element(By.CLASS_NAME, 'resultlink')
                     title = link_element.text.strip()
                     link = link_element.get_attribute('href')
@@ -135,15 +142,6 @@ def scrape_cnbc_search_results(driver, query, max_articles):
     except Exception as e:
         print(f"Error finding the search results: {e}")
     return articles
-
-'''def write_to_csv(data, file_name='CNBCSearchResults_with_BulletPoints.csv'):
-    print(f"Writing {len(data)} articles to {file_name}...")
-    keys = data[0].keys()
-    with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
-        dict_writer = csv.DictWriter(output_file, keys)
-        dict_writer.writeheader()
-        dict_writer.writerows(data)
-    print('Data successfully written to CSV!')'''
 
 # Set up WebDriver options
 chrome_options = webdriver.ChromeOptions()
