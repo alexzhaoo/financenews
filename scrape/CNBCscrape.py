@@ -47,50 +47,19 @@ def sign_in(driver):
         print("Sign-in failed or took too long.")
         return False
 
-def check_subscription_requirement(driver, article_url):
-    driver.get(article_url)
-    try:
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'ArticleGate-proGate'))
-        )
-        print(f"Skipping {article_url} because subscription is required")
-        return True
-    except TimeoutException:
-        return False
-
-def new_sub_check(driver):
-
-    return True
-
 def scrape_article_bullet_points(driver, article_url):
     driver.get(article_url)
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
-    bullet_points = []
+    #bullet_points = []
     try:
-        groups = driver.find_elements(By.XPATH, "//div[contains(@class, 'group')]")
-        #print(f"Found {len(groups)} group elements.")
+        article_body = driver.find_element(By.CLASS_NAME, 'ArticleBody-articleBody')
+        scraped_text = article_body.get_attribute('outerHTML')
+        #print(f"Debugging article body HTML:\n{article_body.get_attribute('outerHTML')}")
 
-        for group in groups:
-            # Debug group HTML
-            #print(group.get_attribute('outerHTML'))
-
-            p_elements = group.find_elements(By.TAG_NAME, 'p')
-            #print(f"Found {len(p_elements)} <p> elements")
-            
-            for p in p_elements:
-                bullet_points.append(p.text.strip())
-
-            ul_elements = group.find_elements(By.TAG_NAME, 'ul')
-            #print(f"Found {len(ul_elements)} <ul> elements")
-            for ul in ul_elements:
-                li_elements = ul.find_elements(By.TAG_NAME, 'li')
-                for li in li_elements:
-                    bullet_points.append(li.text.strip())
     except Exception as e:
         print(f"Error extracting bullet points: {e}")
-
-    #print(bullet_points)
-    return bullet_points
+    
+    return scraped_text
 
 def scrape_cnbc_search_results(driver, query, max_articles):
     search_url = f'https://www.cnbc.com/search/?query={query}&qsearchterm={query}'
@@ -115,17 +84,16 @@ def scrape_cnbc_search_results(driver, query, max_articles):
 
                     if title and link and link not in seen_articles:
                         seen_articles.add(link)
-                        #need_subscription = check_subscription_requirement(driver, link)
 
                         eyebrow_text = eyebrow.text.strip()
-                        need_subscription = any(word in eyebrow_text.upper() for word in subscription_keywords)
+                        need_subscription = any(word in eyebrow_text.upper() for word in subscription_keywords) # checks if the artricle card requires subscription to read
                         
                         if not need_subscription:
                             articles.append({'title': title, 'link': link})
                             print(f"Title: {title}\nLink: {link} does not require subscription")
-                            bullet_points = scrape_article_bullet_points(driver, link)
-                            articles[-1]['bullet_points'] = bullet_points # adds bullet points to the last article in the list
-                            #print(bullet_points)
+                            scraped_text = scrape_article_bullet_points(driver, link)
+                            articles[-1]['article text'] = scraped_text # adds text to the last article in the list
+                            
                         else:
                             print(f"Skipping {link} because subscription is required")
                         if len(articles) >= max_articles:
@@ -181,7 +149,7 @@ except TimeoutException:
 # Open the CSV file once and write incrementally
 file_name = 'CNBCSearchResults_with_BulletPoints.csv'
 with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
-    dict_writer = csv.DictWriter(output_file, fieldnames=['title', 'link', 'bullet_points'])
+    dict_writer = csv.DictWriter(output_file, fieldnames=['title', 'link', 'article text'])
     dict_writer.writeheader()
 
     articles = scrape_cnbc_search_results(driver, 'stocks', 2)
