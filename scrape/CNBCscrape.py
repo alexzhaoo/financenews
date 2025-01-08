@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, WebDriverException
 from dotenv import load_dotenv
 import time
 import datetime
@@ -61,16 +61,16 @@ def sign_in(driver):
         return False
 
 def scrape_article_bullet_points(driver, article_url):
-    driver.get(article_url)
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
-    #bullet_points = []
     try:
+        driver.get(article_url)
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, 'ArticleBody-articleBody')))
         article_body = driver.find_element(By.CLASS_NAME, 'ArticleBody-articleBody')
         scraped_text = article_body.get_attribute('outerHTML')
         #print(f"Debugging article body HTML:\n{article_body.get_attribute('outerHTML')}")
 
-    except Exception as e:
-        print(f"Error extracting bullet points: {e}")
+    except (TimeoutException, WebDriverException) as e:
+        print(f"Extracted Nothing: {e}")
+        scraped_text = None
     
     return scraped_text
 
@@ -81,58 +81,51 @@ def scrape_cnbc_search_results(driver, query, max_articles):
     articles = []
     seen_articles = set()
     retries = 3  # Number of retries for stale element references
-    try:
-        while len(articles) < max_articles:
+
+    while len(articles) < max_articles:
+        try:
+            # Refresh element references in each loop to avoid stale references
             search_result_eyebrows = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultEyebrow')
             search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
             subscription_keywords = ["PRO:", "CNBC", "CLUB"]
-            
-            #for item in search_result_items:
+
             for item, eyebrow in zip(search_result_items, search_result_eyebrows):
-                try:
-                    
-                    link_element = item.find_element(By.CLASS_NAME, 'resultlink')
-                    title = link_element.text.strip()
-                    link = link_element.get_attribute('href')
+                retry_count = 0
+                while retry_count < retries:
+                    try:
+                        link_element = item.find_element(By.CLASS_NAME, 'resultlink')
+                        title = link_element.text.strip()
+                        link = link_element.get_attribute('href')
 
-                    if title and link and link not in seen_articles:
-                        seen_articles.add(link)
+                        if title and link and link not in seen_articles:
+                            seen_articles.add(link)
 
-                        eyebrow_text = eyebrow.text.strip()
-                        need_subscription = any(word in eyebrow_text.upper() for word in subscription_keywords) # checks if the artricle card requires subscription to read
-                        
-                        if not need_subscription:
-                            #articles.append({'title': title, 'link': link})
-                            print(f"Title: {title}\nLink: {link} does not require subscription")
-                            scraped_text = scrape_article_bullet_points(driver, link)
-                            if scraped_text:
-                                #articles[-1]['article text'] = scraped_text # adds text to the last article in the list
-                                articles.append({'title': title, 'link': link, 'article text': scraped_text})
-                            else:
-                                print("No text found in article... possibly video content")
-                        else:
-                            print(f"Skipping {link} because subscription is required")
-                        if len(articles) >= max_articles:
-                            break
+                            eyebrow_text = eyebrow.text.strip()
+                            need_subscription = any(word in eyebrow_text.upper() for word in subscription_keywords)
 
-                except StaleElementReferenceException:
-                    print("Stale element reference exception caught. Retrying...")
-                    retries -= 1
-                    if retries > 0:
-                        driver.get(search_url)  # Reload the search results page
-                        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'SearchResult-searchResultTitle')))
-                        time.sleep(1)
-                    else:
-                        print("Max retries reached. Exiting...")
-                        break
+                            if not need_subscription:
+                                articles.append({'title': title, 'link': link})
+                                print(f"Title: {title}")
+                                print(f"Link: {link}")
+                        break  # Exit retry loop on success
+                    except StaleElementReferenceException:
+                        retry_count += 1
+                        print(f"Stale element exception caught. Retrying ({retry_count}/{retries})...")
+                        time.sleep(1)  # Short delay before retry
+                        # Refresh the DOM elements
+                        search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
+                        search_result_eyebrows = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultEyebrow')
+                if retry_count == retries:
+                    print("Max retries reached. Skipping element.")
 
-                except Exception as e:
-                    print(f"Error extracting article: {e}")
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    except Exception as e:
-        print(f"Error finding the search results: {e}")
+            # Break the loop if we have enough articles
+            if len(articles) >= max_articles:
+                break
+        except TimeoutException:
+            print("Timeout occurred while loading search results. Exiting.")
+            break
+
     return articles
-
 # Set up WebDriver options
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
@@ -142,48 +135,44 @@ chrome_options.add_argument('--ignore-ssl-errors')
 chrome_options.add_argument('--disable-web-security')
 chrome_options.add_argument('--disable-site-isolation-trials')
 service = Service(CHROMEDRIVER_PATH)
-
-# Sign in with cookies to avoid Captcha errors
 driver = webdriver.Chrome(service=service, options=chrome_options)
-if not sign_in(driver):
-    retry = 3
-    for i in range(retry):
-        print("Retry sign in attempt", i+1, "of 3")
-        if sign_in(driver):
-            break
-
-try: # Makes sure that the sign in is complete
-    WebDriverWait(driver, 20).until(
-        EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
-    )
-    print("Session is maintained after sign-in.")
-except TimeoutException:
-    print("Session is not maintained after sign-in.")
-    driver.quit()
-    exit()
-
 today_date = datetime.date.today().strftime('%Y-%m-%d')
+try:
+    if sign_in(driver):
+        query = "stocks"
+        max_articles = 3
+        articles = scrape_cnbc_search_results(driver, query, max_articles)
 
-# SQL query to insert data
-query = "INSERT INTO scraped_data (title, url, date_scraped, text_scraped) VALUES (%s,%s,%s,%s)"
-articles = scrape_cnbc_search_results(driver, 'stocks', 1)
-for article in articles:
-    print('writing article: ',article['title'], 'to csv')
-    #print(article)
-    #data = (article['title'], article['link'],today_date, article['article text'])
-    #cursor.execute(query, data)
-    #conn.commit()
+        print(f"Scraped {len(articles)} articles. Fetching contents...")
+        
+        for article in articles:
+            article_text = scrape_article_bullet_points(driver, article['link'])
+            article['content'] = article_text  # Add scraped content to the article dictionary
+            sqlquery = "INSERT INTO scraped_data (title, url, date_scraped, text_scraped) VALUES (%s,%s,%s,%s)"
 
-# Code to look retrieve scraped data from sql db
-''' 
+            try: # Articles with no content scraped won't be added to the db
+                print('writing article: ',article['title'], 'to csv')
+                #print(article)
+                #data = (article['title'], article['link'],today_date, article['content'])
+                #cursor.execute(sqlquery, data)
+                #conn.commit()
+            except:
+                continue
+            
+
+finally:
+    driver.quit()
+
+'''
 cursor.execute("SELECT * FROM scraped_data")
 rows = cursor.fetchall()
 
 for row in rows:
     print(row)
+
+
+cursor.execute("TRUNCATE TABLE scraped_data;")
 '''
-
-
 # Close SQL database connection 
 cursor.close()
 conn.close()
