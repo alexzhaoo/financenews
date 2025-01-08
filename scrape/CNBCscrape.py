@@ -10,9 +10,21 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from dotenv import load_dotenv
 import time
+import mysql.connector
 
 # Load environment variables
 load_dotenv()
+
+sql_password = os.getenv('SQL_PASS')
+conn = mysql.connector.connect(
+    host="localhost",
+    port=3306,
+    user="root",
+    password=sql_password,
+    database="cnbc"
+)
+cursor = conn.cursor()
+print("Connected to the database successfully!")
 
 CHROMEDRIVER_PATH = os.getenv('CHROMEDRIVER_PATH')
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
