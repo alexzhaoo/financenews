@@ -101,18 +101,24 @@ def scrape_cnbc_search_results(driver, query, max_articles):
     retries = 3  # Number of retries for stale element references
     try:
         while len(articles) < max_articles:
-            search_for_sub = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultEyebrow')
+            search_result_eyebrows = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultEyebrow')
             search_result_items = driver.find_elements(By.CLASS_NAME, 'SearchResult-searchResultTitle')
+            subscription_keywords = ["PRO:", "CNBC", "CLUB"]
             
-            for item in search_result_items:
+            #for item in search_result_items:
+            for item, eyebrow in zip(search_result_items, search_result_eyebrows):
                 try:
-                    need_subscription = item.find_element(By.CLASS_NAME, 'resultlink')
+                    
                     link_element = item.find_element(By.CLASS_NAME, 'resultlink')
                     title = link_element.text.strip()
                     link = link_element.get_attribute('href')
+
                     if title and link and link not in seen_articles:
                         seen_articles.add(link)
-                        need_subscription = check_subscription_requirement(driver, link)
+                        #need_subscription = check_subscription_requirement(driver, link)
+
+                        eyebrow_text = eyebrow.text.strip()
+                        need_subscription = any(word in eyebrow_text.upper() for word in subscription_keywords)
                         
                         if not need_subscription:
                             articles.append({'title': title, 'link': link})
