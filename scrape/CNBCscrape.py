@@ -10,11 +10,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from dotenv import load_dotenv
 import time
+import datetime
 import mysql.connector
 
 # Load environment variables
 load_dotenv()
 
+# Connect to MySQL database
 sql_password = os.getenv('SQL_PASS')
 conn = mysql.connector.connect(
     host="localhost",
@@ -32,9 +34,8 @@ COOKIES_FILE_PATH = os.path.join(SCRIPT_DIR, '../cookies.json')  # Path to the c
 
 if not os.path.exists(COOKIES_FILE_PATH):
     print(f"Cookies file not found at {COOKIES_FILE_PATH}")
-else:
-    print(f"Cookies file found at {COOKIES_FILE_PATH}")
 
+# Loading cookies to bypass reCaptchas
 def load_cookies(driver, cookies_file_path):
     with open(cookies_file_path, 'r') as cookies_file:
         cookies = json.load(cookies_file)
@@ -101,11 +102,14 @@ def scrape_cnbc_search_results(driver, query, max_articles):
                         need_subscription = any(word in eyebrow_text.upper() for word in subscription_keywords) # checks if the artricle card requires subscription to read
                         
                         if not need_subscription:
-                            articles.append({'title': title, 'link': link})
+                            #articles.append({'title': title, 'link': link})
                             print(f"Title: {title}\nLink: {link} does not require subscription")
                             scraped_text = scrape_article_bullet_points(driver, link)
-                            articles[-1]['article text'] = scraped_text # adds text to the last article in the list
-                            
+                            if scraped_text:
+                                #articles[-1]['article text'] = scraped_text # adds text to the last article in the list
+                                articles.append({'title': title, 'link': link, 'article text': scraped_text})
+                            else:
+                                print("No text found in article... possibly video content")
                         else:
                             print(f"Skipping {link} because subscription is required")
                         if len(articles) >= max_articles:
@@ -148,7 +152,7 @@ if not sign_in(driver):
         if sign_in(driver):
             break
 
-try:
+try: # Makes sure that the sign in is complete
     WebDriverWait(driver, 20).until(
         EC.presence_of_element_located((By.CLASS_NAME, 'ProfileIcon-profileIconContainer'))
     )
@@ -158,16 +162,30 @@ except TimeoutException:
     driver.quit()
     exit()
 
-# Open the CSV file once and write incrementally
-file_name = 'CNBCSearchResults_with_BulletPoints.csv'
-with open(file_name, 'w', encoding='utf-8', newline='') as output_file:
-    dict_writer = csv.DictWriter(output_file, fieldnames=['title', 'link', 'article text'])
-    dict_writer.writeheader()
+today_date = datetime.date.today().strftime('%Y-%m-%d')
 
-    articles = scrape_cnbc_search_results(driver, 'stocks', 2)
-    for article in articles:
-        print('writing article: ',article['title'], 'to csv')
-        dict_writer.writerow(article)
-        
+# SQL query to insert data
+query = "INSERT INTO scraped_data (title, url, date_scraped, text_scraped) VALUES (%s,%s,%s,%s)"
+articles = scrape_cnbc_search_results(driver, 'stocks', 1)
+for article in articles:
+    print('writing article: ',article['title'], 'to csv')
+    #print(article)
+    #data = (article['title'], article['link'],today_date, article['article text'])
+    #cursor.execute(query, data)
+    #conn.commit()
+
+# Code to look retrieve scraped data from sql db
+''' 
+cursor.execute("SELECT * FROM scraped_data")
+rows = cursor.fetchall()
+
+for row in rows:
+    print(row)
+'''
+
+
+# Close SQL database connection 
+cursor.close()
+conn.close()
 
 driver.quit()
