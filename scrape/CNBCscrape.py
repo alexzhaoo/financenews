@@ -143,14 +143,15 @@ today_date = datetime.date.today().strftime('%Y-%m-%d')
 try:
     if sign_in(driver):
         query = "stocks"
-        max_articles = 2
+        max_articles = 4
         articles = scrape_cnbc_search_results(driver, query, max_articles)
 
         print(f"Scraped {len(articles)} articles. Fetching contents...")
         
         for article in articles:
             article_text = scrape_article_bullet_points(driver, article['link'])
-            article['content'] = article_text  # Add scraped content to the article dictionary
+            print(article)
+            '''article['content'] = article_text  # Add scraped content to the article dictionary
             sqlquery = "INSERT INTO scraped_data (title, url, date_scraped, text_scraped) VALUES (%s,%s,%s,%s)"
 
             try: # Articles with no content scraped won't be added to the db
@@ -161,7 +162,7 @@ try:
                 conn.commit()
             except:
                 print('Article: ',article, 'cannot be written as no content was scraped.')
-                continue
+                continue'''
             
 
 finally:
@@ -177,7 +178,7 @@ for row in rows:
 
 cursor.execute("TRUNCATE TABLE scraped_data;") # Clear the db
 '''
-
+print('scraped', len(articles),'articles')
 # Close SQL database connection 
 cursor.close()
 conn.close()
