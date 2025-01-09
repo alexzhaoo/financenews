@@ -119,7 +119,7 @@ def scrape_cnbc_search_results(driver, query, max_articles):
                     print("Max retries reached. Skipping element.")
             # Scroll down the page
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)  # Wait for new content to load
+            time.sleep(2) 
 
             # Break the loop if we have enough articles
             if len(articles) >= max_articles:
@@ -150,8 +150,7 @@ try:
         
         for article in articles:
             article_text = scrape_article_bullet_points(driver, article['link'])
-            print(article)
-            '''article['content'] = article_text  # Add scraped content to the article dictionary
+            article['content'] = article_text  # Add scraped content to the article dictionary
             sqlquery = "INSERT INTO scraped_data (title, url, date_scraped, text_scraped) VALUES (%s,%s,%s,%s)"
 
             try: # Articles with no content scraped won't be added to the db
@@ -162,7 +161,7 @@ try:
                 conn.commit()
             except:
                 print('Article: ',article, 'cannot be written as no content was scraped.')
-                continue'''
+                continue
             
 
 finally:
